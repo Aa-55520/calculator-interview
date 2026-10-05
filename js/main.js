@@ -18,6 +18,26 @@ function add(a, b) {
   // TODO: 整个计算器现在只会这一件事，而且还没实现——等着你的 PR
   return a + b;
 }
+
+/**
+ * 平方和：两个操作数各自的平方之和。
+ * @param {number} a 左操作数
+ * @param {number} b 右操作数
+ * @returns {number} a² + b²
+ */
+function squareSum(a, b) {
+  return a * a + b * b;
+}
+
+/**
+ * 平方差：左操作数的平方减去右操作数的平方。
+ * @param {number} a 左操作数
+ * @param {number} b 右操作数
+ * @returns {number} a² − b²
+ */
+function squareDiff(a, b) {
+  return a * a - b * b;
+}
 /**
  * 常用对数 log10
  * @param {number} x 输入数字
@@ -109,6 +129,8 @@ const OPERATORS = {
   '÷': (a, b) => a / b,
  'xʸ': (a, b) => Math.pow(a, b), // 新增：任意次幂 xʸ
  'ʸ√x': (a, b) => (a < 0 && b % 2 === 1) ? -Math.pow(-a, 1 / b) : Math.pow(a, 1 / b), // ← 新增：n 次方根，b 是根指数
+ 'a²+b²': squareSum, // 新增：平方和键
+ 'a²−b²': squareDiff, // 新增：平方差键
 };  
 
 
@@ -598,6 +620,8 @@ const LAYOUT = [
   ['xʸ', 'operator'], // 新增：任意次幂键
   ['±', 'plusMinus'], // #102 新增：正负切换键
   ['ʸ√x', 'operator'], // ← 新增：n 次方根键
+  ['a²+b²', 'operator'], // 新增：平方和键（标签沿用本仓 x² / xʸ / ʸ√x 的记号风格，避免中文标签在 4 列网格里换行）
+  ['a²−b²', 'operator'], // 新增：平方差键
 ];
 
 const KEY_CLASS = {
