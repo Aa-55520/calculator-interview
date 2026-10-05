@@ -594,6 +594,7 @@ const LAYOUT = [
   ['MC', 'mc'], ['MR', 'mr'], ['M+', 'mplus'], ['M−', 'mminus'],
   ['%', 'percent'], // #33 新增：百分号键
   ['sin', 'trig'], ['cos', 'trig'], ['tan', 'trig'], // 三角函数键
+  ['sinh', 'trig'], ['cosh', 'trig'], ['tanh', 'trig'], // #143 新增：双曲函数键
   ['DEG', 'angleMode'], // 角度/弧度切换键：键面文字随当前模式变化
   ['xʸ', 'operator'], // 新增：任意次幂键
   ['±', 'plusMinus'], // #102 新增：正负切换键
@@ -631,6 +632,11 @@ LAYOUT.forEach(([label, kind]) => {
   button.className = `key ${KEY_CLASS[kind]}`;
   button.textContent = label;
   button.addEventListener('click', () => {
+    if (kind === 'trig' && HYPERBOLIC_FNS.has(label)) { // #143 新增：双曲函数键转交独立处理
+      inputHyperbolic(label);
+      return;
+    }
+
     if (kind === 'digit') {
       inputDigit(label);
     } else if (kind === 'operator') {
@@ -983,3 +989,44 @@ if (memoryIndicatorHost) {
 }
 
 updateMemoryIndicator();
+
+// ---------------------------------------------------------------
+// #143 新增：双曲函数 sinh / cosh / tanh（纯新增代码，不改动任何既有逻辑）
+// ---------------------------------------------------------------
+/** 双曲函数键名集合：这三个键复用 trig 按键类型，在按键分发处先行拦截。 */
+const HYPERBOLIC_FNS = new Set(['sinh', 'cosh', 'tanh']);
+
+/**
+ * 双曲函数键：对当前显示值求 sinh / cosh / tanh。
+ * 主屏显示结果，副屏显示表达式（如「sinh(1) =」）。
+ * 双曲函数的自变量是实数而非角度，因此与 DEG/RAD 模式无关。
+ * @param {string} name 函数名：'sinh' | 'cosh' | 'tanh'
+ */
+function inputHyperbolic(name) {
+  if (isError()) {
+    return;
+  }
+  canRepeat = false; // 一元运算改变了当前数，连算资格作废
+
+  const value = Number(text);
+  if (!Number.isFinite(value)) {
+    return;
+  }
+
+  const result = Math[name](value); // 直接用实数，不做角度换算
+
+  // 结果超出可表示范围（如 sinh(1000) = Infinity）或非数时，
+  // 统一按「错误」处理，不把 Infinity / NaN 显示到屏幕上
+  if (!Number.isFinite(result)) {
+    text = ERROR_TEXT;
+    clearState();
+    showSub('');
+    show();
+    return;
+  }
+
+  showSub(`${name}(${formatResult(value)}) =`);
+  text = formatResult(result); // 复用统一的 12 位有效数字收敛，避免浮点长尾
+  waiting = true; // 求值后按数字键，从新数字开始输入
+  show();
+}
