@@ -434,6 +434,63 @@ function inputTrig(name) {
 }
 
 // ---------------------------------------------------------------
+// 反三角函数 asin / acos / atan（与已有 DEG/RAD 模式联动）
+// ---------------------------------------------------------------
+// 反三角键与正向三角键同属「一元三角运算」这一类动作，所以 LAYOUT 里复用已有的
+// 'trig' 类型，由键面文字区分正/反，不新增类型
+const ARC_TRIG_NAMES = {
+  'sin⁻¹': 'asin',
+  'cos⁻¹': 'acos',
+  'tan⁻¹': 'atan',
+};
+
+/**
+ * 反三角函数键：对当前显示值求反正弦/反余弦/反正切，行为与 sin/cos/tan 一致。
+ * @param {string} label 键面文字：'sin⁻¹' | 'cos⁻¹' | 'tan⁻¹'
+ */
+function inputArcTrig(label) {
+  if (isError()) {
+    return;
+  }
+  canRepeat = false; // 一元运算改变了当前数，连算资格作废
+
+  const name = ARC_TRIG_NAMES[label];
+  const value = Number(text);
+  if (!name || !Number.isFinite(value)) {
+    return;
+  }
+
+  // asin / acos 的定义域是 [-1, 1]：输入的是比值，与角度模式无关，超出即非法输入
+  if (name !== 'atan' && (value < -1 || value > 1)) {
+    text = ERROR_TEXT;
+    clearState();
+    showSub('');
+    show();
+    return;
+  }
+
+  // 反三角算出来的是弧度；DEG 模式下再换算成角度显示
+  let result = Math[name](value);
+  if (useDegrees) {
+    result = (result * 180) / Math.PI;
+  }
+
+  // 浮点残差清理：结果绝对值过小时归零，避免 -0 或 1.2e-16 这类残差
+  if (Math.abs(result) < 1e-12) {
+    result = 0;
+  }
+
+  text = formatResult(result);
+
+  if (text === ERROR_TEXT) {
+    clearState();
+    showSub('');
+  }
+
+  show();
+}
+
+// ---------------------------------------------------------------
 // 括号：用栈暂存外层上下文，按下 ) 时把括号内的算式求值
 // ---------------------------------------------------------------
 
@@ -594,6 +651,7 @@ const LAYOUT = [
   ['MC', 'mc'], ['MR', 'mr'], ['M+', 'mplus'], ['M−', 'mminus'],
   ['%', 'percent'], // #33 新增：百分号键
   ['sin', 'trig'], ['cos', 'trig'], ['tan', 'trig'], // 三角函数键
+  ['sin⁻¹', 'trig'], ['cos⁻¹', 'trig'], ['tan⁻¹', 'trig'], // 反三角函数键（复用 trig 类型）
   ['sinh', 'trig'], ['cosh', 'trig'], ['tanh', 'trig'], // #143 新增：双曲函数键
   ['DEG', 'angleMode'], // 角度/弧度切换键：键面文字随当前模式变化
   ['xʸ', 'operator'], // 新增：任意次幂键
@@ -672,7 +730,11 @@ LAYOUT.forEach(([label, kind]) => {
     } else if (kind === 'mminus') {
       inputMemorySubtract();
     } else if (kind === 'trig') {
-      inputTrig(label);
+      if (ARC_TRIG_NAMES[label]) {
+        inputArcTrig(label); // 反三角键：sin⁻¹ / cos⁻¹ / tan⁻¹
+      } else {
+        inputTrig(label);
+      }
     } else if (kind === 'angleMode') {
       toggleAngleMode();
       button.textContent = useDegrees ? 'DEG' : 'RAD';
