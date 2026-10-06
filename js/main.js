@@ -364,6 +364,23 @@ function inputReciprocal() {
   show();
 }
 
+/** 绝对值键：对当前显示的数求绝对值。 */
+function inputAbs() {
+  if (isError()) {
+    return;
+  }
+  canRepeat = false; // 一元运算改变了当前数，连算资格作废
+  const value = Number(text);
+  text = formatResult(Math.abs(value));
+
+  if (text === ERROR_TEXT) {
+    clearState();
+    showSub('');
+  }
+
+  show();
+}
+
 /** π 键：输入圆周率的近似值（用浮点近似，不做高精度符号显示）。 */
 const PI_TEXT = formatResult(Math.PI);
 
@@ -1119,3 +1136,10 @@ cubeButton.className = 'key key--action';
 cubeButton.textContent = 'x³';
 cubeButton.addEventListener('click', inputCube);
 keyboard.appendChild(cubeButton);
+
+const absButton = document.createElement('button');
+absButton.type = 'button';
+absButton.className = 'key key--action';
+absButton.textContent = '|x|';
+absButton.addEventListener('click', inputAbs);
+keyboard.appendChild(absButton);
