@@ -188,3 +188,22 @@ body {
     color: var(--text-sub);
     text-align: center;
 }
+
+/* ---------- 历史记录去重：重复次数徽标 ---------- */
+#history-list li.history-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#history-list li.history-item .history-item__count {
+    margin-left: auto; /* 徽标靠右，文本长了也不会被挤走 */
+    flex: none;
+    padding: 0 6px;
+    border-radius: 8px;
+    background: rgba(84, 160, 255, .2);
+    color: var(--key-action);
+    font-size: 12px;
+    line-height: 18px;
+    user-select: none; /* 徽标只是角标，不参与选中 */
+}
