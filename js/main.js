@@ -1165,3 +1165,42 @@ absButton.className = 'key key--action';
 absButton.textContent = '|x|';
 absButton.addEventListener('click', inputAbs);
 keyboard.appendChild(absButton);
+// =================================================================
+// 新增：随机数键 Rand（纯追加，不改动上方任何既有代码）
+//
+// 按下后生成一个落在 [0, 1) 区间的随机数写进主显示区，
+// 之后它可以像普通数字一样继续参与四则运算。
+// 不动显示区 DOM、不改既有函数签名、不引第三方依赖。
+// =================================================================
+
+// 先放大成整数再缩小回去，这么做有两个好处：
+// 1) 结果最多 12 位小数，不会出现浮点长尾（比如 0.30000000000000004）；
+// 2) 上界被锁死在 0.999999999999，杜绝了「舍入后显示成 1」的极端情况。
+const RAND_SCALE = 1e12;
+
+/** 取一个 [0, 1) 区间内的随机数，最多 12 位小数。 */
+function randomUnit() {
+  return Math.floor(Math.random() * RAND_SCALE) / RAND_SCALE;
+}
+
+/** Rand 键：把随机数写入主显示区，行为与 π 键保持一致。 */
+function inputRandom() {
+  if (isError()) {
+    text = INITIAL; // 从错误态恢复时先回到初始显示，避免把「错误」这个值传下去
+  }
+
+  canRepeat = false; // 随机数是一次一元运算的结果，旧的连算资格作废
+  text = formatResult(randomUnit());
+  waiting = true; // 与 π 键一致：随机数是一个完整结果，下一个数字另起一轮
+  show();
+}
+
+// 在键盘末尾追加 Rand 键：沿用现有 .key .key--action 样式，
+// 不动 LAYOUT / KEY_CLASS / OPERATORS，也不碰既有按键的分发逻辑。
+const randomButton = document.createElement('button');
+randomButton.type = 'button';
+randomButton.className = 'key key--action';
+randomButton.textContent = 'Rand';
+randomButton.addEventListener('click', inputRandom);
+keyboard.appendChild(randomButton);
+
