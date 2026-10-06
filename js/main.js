@@ -1092,3 +1092,28 @@ function inputHyperbolic(name) {
   waiting = true; // 求值后按数字键，从新数字开始输入
   show();
 }
+
+// 立方按钮：计算当前数字的三次方
+function inputCube() {
+  if (isError()) {
+    return;
+  }
+  canRepeat = false;
+
+  const value = Number(text);
+  text = formatResult(value * value * value);
+
+  if (isError()) {
+    clearState();
+    parenStack.length = 0;
+    showSub('');
+  }
+  show();
+}
+
+const cubeButton = document.createElement('button');
+cubeButton.type = 'button';
+cubeButton.className = 'key key--action';
+cubeButton.textContent = 'x³';
+cubeButton.addEventListener('click', inputCube);
+keyboard.appendChild(cubeButton);
