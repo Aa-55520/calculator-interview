@@ -793,6 +793,10 @@ let history = [];
 function isHistoryItem(item) {
   return Boolean(item) && typeof item.line === 'string' && typeof item.result === 'string';
 }
+/** 取某条的重复次数；count 缺失或被写坏时兜底为 1，避免渲染出 NaN。 */
+function historyCount(item) {
+  return item.count > 0 ? item.count : 1;
+}
 
 /** 启动时读取历史；读不出来（无痕模式 / 数据损坏）就当没有。 */
 function loadHistory() {
@@ -813,9 +817,15 @@ function saveHistory() {
   }
 }
 
-/** 求值成功后记一条并刷新面板。 */
+/** 求值成功后记一条并刷新面板；与上一条算式相同则折叠为计数 +1，不新增条目。 */
 function recordHistory(line, result) {
-  history.unshift({ line, result });
+  const latest = history[0];
+  // 只跟「最近一条」比：连续重复才折叠。中间隔了别的算式就照常各记一条。
+  if (latest && latest.line === line && latest.result === result) {
+    latest.count = historyCount(latest) + 1;
+  } else {
+    history.unshift({ line, result, count: 1 });
+  }
   if (history.length > HISTORY_MAX) {
     history.length = HISTORY_MAX;
   }
@@ -859,7 +869,19 @@ function renderHistory() {
   history.forEach((item) => {
     const li = document.createElement('li');
     li.className = 'history-item';
+
+    // 算式和结果先作为条目文本（和原来一样），重复次数再挂成徽标
     li.textContent = `${item.line} ${item.result}`;
+
+    const times = historyCount(item);
+    if (times > 1) {
+      const badge = document.createElement('span');
+      badge.className = 'history-item__count';
+      badge.textContent = `×${times}`;
+      badge.title = `连续重复 ${times} 次`;
+      li.appendChild(badge);
+    }
+
     li.title = '点击把结果填回主屏';
     li.addEventListener('click', () => refillFromHistory(item));
     historyList.appendChild(li);
