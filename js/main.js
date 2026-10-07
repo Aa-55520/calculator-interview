@@ -1585,3 +1585,135 @@ document.addEventListener('keydown', (event) => {
     keyboard.appendChild(button);
   },
 );
+
+// =========================================
+// 新增：按键音效（纯追加，不改动上方任何既有逻辑）
+// 用事件委托捕获键盘区的所有点击 + 物理键盘按下，不动 LAYOUT、不动既有按键
+// 分发逻辑、不改任何已有函数。声音用浏览器原生的 AudioContext 实时合成，
+// 不引依赖、不加载音频文件、不加构建工具。
+// 默认关闭：只有用户主动点开「音效」键之后才发声，打开页面不会突然响。
+// =========================================
+
+// 不同类别的按键给不同音高，听感上能区分数字 / 运算 / 清除
+const SOUND_TONES = {
+  'key--normal': 660, // 数字、小数点
+  'key--action': 520, // 运算符与一元运算
+  'key--success': 780, // 等号
+  'key--danger': 300, // 清除
+  'key--backspace': 420, // 退格
+};
+const SOUND_DEFAULT_TONE = 600; // 物理键盘等无法归类时的默认音高
+
+// 只有这些物理按键发声，避免按 F1、Tab 之类的无关键也响
+const SOUND_KEYS = new Set([
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.',
+  '+', '-', '*', '/', 'Enter', '=', 'Backspace', 'Escape', 'c', 'C',
+]);
+
+let audioContext = null;
+let soundEnabled = false;
+
+/**
+ * 惰性创建 AudioContext：浏览器要求页面必须先有用户手势才允许出声，
+ * 所以只有在真正要发声时才创建（此时必然已经发生过点击）。
+ * @returns {AudioContext|null} 浏览器不支持时返回 null，静默降级
+ */
+function getAudioContext() {
+  if (audioContext === null) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) {
+      return null;
+    }
+    audioContext = new Ctor();
+  }
+  // 某些浏览器创建后处于 suspended，出声前恢复一次
+  if (audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
+  return audioContext;
+}
+
+/**
+ * 发一声短促的提示音：正弦波 + 快速淡入淡出，避免起停时的爆音。
+ * @param {number} tone 频率（Hz）
+ */
+function playKeyTone(tone) {
+  const ctx = getAudioContext();
+  if (!ctx) {
+    return; // 浏览器不支持音频：静默降级，不影响计算
+  }
+
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(tone, now);
+
+  // 音量包络：10ms 淡入、120ms 淡出，听感是干净的一声「嘀」
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.12, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.14);
+}
+
+/** 按按钮的类别挑一个音高；关着的时候什么都不做。 */
+function playSoundForButton(button) {
+  if (!soundEnabled) {
+    return;
+  }
+  const matched = Object.keys(SOUND_TONES).find((cls) => button.classList.contains(cls));
+  playKeyTone(matched ? SOUND_TONES[matched] : SOUND_DEFAULT_TONE);
+}
+
+// 开关键的开启态只有一条高亮规则，随本段代码一起注入，不动 css/style.css
+const soundButtonStyle = document.createElement('style');
+soundButtonStyle.textContent = [
+  '.key--sound-on {',
+  '  background: #2f9e44;',
+  '  color: #fff;',
+  '}',
+].join('\n');
+document.head.appendChild(soundButtonStyle);
+
+// 音效开关按钮：默认关闭，点一下开启，副屏写明当前状态（与「复制」键的做法一致）
+const soundButton = document.createElement('button');
+soundButton.type = 'button';
+soundButton.className = 'key key--action';
+soundButton.textContent = '音效 关';
+
+soundButton.addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  soundButton.classList.toggle('key--sound-on', soundEnabled);
+  soundButton.textContent = soundEnabled ? '音效 开' : '音效 关';
+  showSub(soundEnabled ? '按键音效已开启' : '按键音效已关闭');
+
+  // 开启时立刻响一声，让用户确认真的生效了
+  if (soundEnabled) {
+    playKeyTone(SOUND_DEFAULT_TONE);
+  }
+});
+
+keyboard.appendChild(soundButton);
+
+// 事件委托：监听整个键盘区的 click 冒泡，所有按键（含以后新增的）自动发声。
+// 这样完全不用改 LAYOUT 与上面已有的 click 处理逻辑。
+keyboard.addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  if (!button || button === soundButton) {
+    return; // 开关自己不发声（它的反馈在上面单独处理）
+  }
+  playSoundForButton(button);
+});
+
+// 物理键盘：与上方已有的 keydown 监听并存；长按产生的重复事件只响一次
+document.addEventListener('keydown', (e) => {
+  if (!soundEnabled || e.repeat || !SOUND_KEYS.has(e.key)) {
+    return;
+  }
+  playKeyTone(SOUND_DEFAULT_TONE);
+});
