@@ -1203,6 +1203,42 @@ randomButton.className = 'key key--action';
 randomButton.textContent = 'Rand';
 randomButton.addEventListener('click', inputRandom);
 keyboard.appendChild(randomButton);
+/**
+ * 奇/偶 判断按键
+ * 读取主屏当前数字，判断奇数/偶数
+ */
+function inputOddEven(){
+  if (isError()) {
+    return;
+  }
+  canRepeat = false;
+
+  const num = Number(text);
+  // 判断是否为整数
+  if (!Number.isInteger(num)) {
+    text = "仅支持整数";
+    showSub('');
+    show();
+    return;
+  }
+
+  if (num % 2 === 0) {
+    text = '偶数';
+  } else {
+    text = '奇数';
+  }
+  showSub('');
+  show();
+}
+
+// 渲染【奇 / 偶】按钮，追加到键盘
+const oddEvenBtn = document.createElement('button');
+oddEvenBtn.type = 'button';
+oddEvenBtn.className = 'key key--action';
+oddEvenBtn.textContent = '奇 / 偶';
+oddEvenBtn.addEventListener('click', inputOddEven);
+keyboard.appendChild(oddEvenBtn);
+
 
 // =========================================
 // 新增：度 / 分 / 秒（° ′ ″）三个按键 —— 纯叠加，既有逻辑零改动
