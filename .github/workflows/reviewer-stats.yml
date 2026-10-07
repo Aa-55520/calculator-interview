@@ -1,9 +1,7 @@
 name: Reviewer stats
 
-# 统计审核次数；每天北京时间 21:00 发日报到 Issue #173
+# 只在 develop 上跑：每天北京 21:00 + 手动；不监听 pull_request_review（避免挂到学生 PR 且 fork 审阅 token 写 Issue 403）
 on:
-  pull_request_review:
-    types: [submitted]
   schedule:
     # 13:00 UTC = 21:00 Asia/Shanghai
     - cron: "0 13 * * *"
@@ -33,7 +31,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      # 必须用 GITHUB_TOKEN：XWMS_PAT 无 issues 写权限会 403；team 读失败则回退 STATS_TEAM
+      # GITHUB_TOKEN + issues: write；team 读失败回退 STATS_TEAM
       - name: Collect / update dashboard / optional digest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -41,7 +39,7 @@ jobs:
           STATS_ISSUE: "173"
           STATS_CUTOFF: "2026-10-04T00:00:00+08:00"
           STATS_UPDATE_ISSUE: "1"
-          # schedule 与手动默认发日报；单次 review 触发只更新总表
-          STATS_POST_DIGEST: ${{ github.event_name == 'schedule' && '1' || (github.event_name == 'workflow_dispatch' && inputs.post_digest && '1' || '0') }}
+          # 定时必发日报；手动按勾选
+          STATS_POST_DIGEST: ${{ github.event_name == 'schedule' && '1' || (inputs.post_digest && '1' || '0') }}
           STATS_TEAM: "MOLUOGH,MU-mu188,Pazburg,Return-leaf,hongwei-2026,hzc1045-web,isryanyhliu,jingdi0112,valacoynocecio475-prog,xwms"
         run: python ci/reviewer-stats/collect.py
