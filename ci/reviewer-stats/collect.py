@@ -173,7 +173,8 @@ def load_roster_from_issue() -> Optional[Dict[str, Any]]:
         comments = gh_paginate(f"/repos/{REPO}/issues/{ISSUE_NUMBER}/comments")
     except GhApiError:
         return None
-    for c in comments:
+    # 多条时取最后一条（可能是 Actions 新建的）
+    for c in reversed(comments):
         body = c.get("body") or ""
         if ROSTER_MARKER not in body:
             continue
@@ -188,6 +189,18 @@ def load_roster_from_issue() -> Optional[Dict[str, Any]]:
         except json.JSONDecodeError:
             continue
     return None
+
+
+def token_actor_logins() -> Set[str]:
+    """Logins whose Issue comments this token can safely PATCH."""
+    actors = {"github-actions[bot]", "github-actions"}
+    try:
+        me = (gh_api("/user") or {}).get("login")
+        if me:
+            actors.add(me)
+    except GhApiError:
+        pass
+    return actors
 
 
 def save_roster_issue(roster: Dict[str, Any]) -> None:
@@ -565,17 +578,17 @@ def render_daily_digest(data: Dict[str, Any], sync_notes: List[str]) -> str:
 
 
 def upsert_marked_comment(marker: str, body: str, replace: bool = False) -> None:
+    """Update only comments we own; otherwise POST a new one (never PATCH others')."""
     comments = gh_paginate(f"/repos/{REPO}/issues/{ISSUE_NUMBER}/comments")
-    existing = next((c for c in comments if marker in (c.get("body") or "")), None)
-    if existing and (replace or marker in (MARKER, ROSTER_MARKER)):
-        gh_api(
-            f"/repos/{REPO}/issues/comments/{existing['id']}",
-            method="PATCH",
-            body={"body": body},
-        )
-        print(f"updated comment {existing['id']} marker={marker}")
-        return
-    if marker == DIGEST_MARKER:
+    owned = token_actor_logins()
+    mine = [
+        c
+        for c in comments
+        if marker in (c.get("body") or "")
+        and ((c.get("user") or {}).get("login") or "") in owned
+    ]
+    # 日报始终追加新评论
+    if marker == DIGEST_MARKER and not replace:
         gh_api(
             f"/repos/{REPO}/issues/{ISSUE_NUMBER}/comments",
             method="POST",
@@ -583,6 +596,22 @@ def upsert_marked_comment(marker: str, body: str, replace: bool = False) -> None
         )
         print("created daily digest comment")
         return
+
+    existing = mine[-1] if mine else None
+    if existing and (replace or marker in (MARKER, ROSTER_MARKER)):
+        try:
+            gh_api(
+                f"/repos/{REPO}/issues/comments/{existing['id']}",
+                method="PATCH",
+                body={"body": body},
+            )
+            print(f"updated comment {existing['id']} marker={marker}")
+            return
+        except GhApiError as exc:
+            if "403" not in str(exc) and "404" not in str(exc):
+                raise
+            print(f"warn: cannot edit comment {existing['id']}, creating new: {exc}")
+
     gh_api(
         f"/repos/{REPO}/issues/{ISSUE_NUMBER}/comments",
         method="POST",
