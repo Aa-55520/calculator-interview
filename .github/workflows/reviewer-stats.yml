@@ -33,9 +33,10 @@ jobs:
         with:
           python-version: "3.12"
 
+      # 必须用 GITHUB_TOKEN：XWMS_PAT 无 issues 写权限会 403；team 读失败则回退 STATS_TEAM
       - name: Collect / update dashboard / optional digest
         env:
-          GH_TOKEN: ${{ secrets.XWMS_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           STATS_REPO: ${{ github.repository }}
           STATS_ISSUE: "173"
           STATS_CUTOFF: "2026-10-04T00:00:00+08:00"
